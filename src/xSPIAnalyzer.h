@@ -1,17 +1,16 @@
-#ifndef SIMPLESERIAL_ANALYZER_H
-#define SIMPLESERIAL_ANALYZER_H
+#ifndef XSPI_ANALYZER_H
+#define XSPI_ANALYZER_H
 
 #include <Analyzer.h>
-#include "SimpleSerialAnalyzerSettings.h"
-#include "SimpleSerialAnalyzerResults.h"
-#include "SimpleSerialSimulationDataGenerator.h"
-#include <memory>
+#include "xSPIAnalyzerResults.h"
+#include "xSPISimulationDataGenerator.h"
 
-class ANALYZER_EXPORT SimpleSerialAnalyzer : public Analyzer2
+class xSPIAnalyzerSettings;
+class ANALYZER_EXPORT xSPIAnalyzer : public Analyzer2
 {
 public:
-	SimpleSerialAnalyzer();
-	virtual ~SimpleSerialAnalyzer();
+	xSPIAnalyzer();
+	virtual ~xSPIAnalyzer();
 
 	virtual void SetupResults();
 	virtual void WorkerThread();
@@ -23,11 +22,11 @@ public:
 	virtual bool NeedsRerun();
 
 protected: //vars
-	SimpleSerialAnalyzerSettings mSettings;
-	std::unique_ptr<SimpleSerialAnalyzerResults> mResults;
+	std::auto_ptr< xSPIAnalyzerSettings > mSettings;
+	std::auto_ptr< xSPIAnalyzerResults > mResults;
 	AnalyzerChannelData* mSerial;
 
-	SimpleSerialSimulationDataGenerator mSimulationDataGenerator;
+	xSPISimulationDataGenerator mSimulationDataGenerator;
 	bool mSimulationInitilized;
 
 	//Serial analysis vars:
@@ -40,4 +39,4 @@ extern "C" ANALYZER_EXPORT const char* __cdecl GetAnalyzerName();
 extern "C" ANALYZER_EXPORT Analyzer* __cdecl CreateAnalyzer( );
 extern "C" ANALYZER_EXPORT void __cdecl DestroyAnalyzer( Analyzer* analyzer );
 
-#endif //SIMPLESERIAL_ANALYZER_H
+#endif //XSPI_ANALYZER_H
