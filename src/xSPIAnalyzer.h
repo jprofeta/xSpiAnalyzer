@@ -1,8 +1,12 @@
 #ifndef XSPI_ANALYZER_H
 #define XSPI_ANALYZER_H
 
+#include <array>
+#include <vector>
+
 #include <Analyzer.h>
 #include "xSPIAnalyzerResults.h"
+#include "xSPIAnalyzerSettings.h"
 #include "xSPISimulationDataGenerator.h"
 
 class xSPIAnalyzerSettings;
@@ -21,18 +25,29 @@ public:
 	virtual const char* GetAnalyzerName() const;
 	virtual bool NeedsRerun();
 
+	void Setup();
+	void AdvanceSignalsToSample();
+	void AdvanceToCsEdge();
+	void AdvanceToNextPacket();
+	bool VerifyClockPolarity();
+	void GetWord();
+	bool IsNextClockEdgeValid();
+
 protected: //vars
-	std::auto_ptr< xSPIAnalyzerSettings > mSettings;
-	std::auto_ptr< xSPIAnalyzerResults > mResults;
-	AnalyzerChannelData* mSerial;
+	xSPIAnalyzerSettings mSettings;
+	xSPIAnalyzerResults mResults;
+
+	AnalyzerChannelData* mEnable;
+	AnalyzerChannelData* mClock;
+	AnalyzerChannelData* mDataStrobe;
+	std::array<AnalyzerChannelData*, 8> mData{{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}};
 
 	xSPISimulationDataGenerator mSimulationDataGenerator;
 	bool mSimulationInitilized;
 
-	//Serial analysis vars:
-	U32 mSampleRateHz;
-	U32 mStartOfStopBitOffset;
-	U32 mEndOfStopBitOffset;
+	// analysis vars:
+	U64 mCurrentSample;
+	std::vector<TraceMarker> mMarkers;
 };
 
 extern "C" ANALYZER_EXPORT const char* __cdecl GetAnalyzerName();

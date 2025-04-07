@@ -3,11 +3,13 @@
 #include <AnalyzerChannelData.h>
 
 xSPIAnalyzer::xSPIAnalyzer()
-:	Analyzer2(),  
-	mSettings( new xSPIAnalyzerSettings() ),
-	mSimulationInitilized( false )
+:	Analyzer2(),
+	mSettings(),
+	mSimulationInitilized( false ),
+	mResults(xSPIAnalyzerResults(this, &mSettings))
 {
-	SetAnalyzerSettings( mSettings.get() );
+	SetAnalyzerSettings( &mSettings );
+	UseFrameV2();
 }
 
 xSPIAnalyzer::~xSPIAnalyzer()
@@ -17,59 +19,315 @@ xSPIAnalyzer::~xSPIAnalyzer()
 
 void xSPIAnalyzer::SetupResults()
 {
-	mResults.reset( new xSPIAnalyzerResults( this, mSettings.get() ) );
-	SetAnalyzerResults( mResults.get() );
-	mResults->AddChannelBubblesWillAppearOn( mSettings->mInputChannel );
+	SetAnalyzerResults( &mResults );
+	mResults.AddChannelBubblesWillAppearOn( mSettings.mClockChannel );
 }
 
 void xSPIAnalyzer::WorkerThread()
 {
-	mSampleRateHz = GetSampleRate();
+	Setup();
 
-	mSerial = GetAnalyzerChannelData( mSettings->mInputChannel );
+	AdvanceToNextPacket();
 
-	if( mSerial->GetBitState() == BIT_LOW )
-		mSerial->AdvanceToNextEdge();
-
-	U32 samples_per_bit = mSampleRateHz / mSettings->mBitRate;
-	U32 samples_to_first_center_of_first_data_bit = U32( 1.5 * double( mSampleRateHz ) / double( mSettings->mBitRate ) );
-
-	for( ; ; )
+	while (true)
 	{
-		U8 data = 0;
-		U8 mask = 1 << 7;
-		
-		mSerial->AdvanceToNextEdge(); //falling edge -- beginning of the start bit
+		GetWord();
+		CheckIfThreadShouldExit();
+	}
+}
 
-		U64 starting_sample = mSerial->GetSampleNumber();
+void xSPIAnalyzer::Setup()
+{
+	mEnable = GetAnalyzerChannelData(mSettings.mEnableChannel);
+	mClock = GetAnalyzerChannelData(mSettings.mClockChannel);
 
-		mSerial->Advance( samples_to_first_center_of_first_data_bit );
+	if (mSettings.mDataStrobeChannel != UNDEFINED_CHANNEL)
+		mDataStrobe = GetAnalyzerChannelData(mSettings.mDataStrobeChannel);
+	else
+		mDataStrobe = NULL;
 
-		for( U32 i=0; i<8; i++ )
+	mData = {
+		GetAnalyzerChannelData(mSettings.mD0Channel),
+		GetAnalyzerChannelData(mSettings.mD1Channel),
+		mSettings.mD2Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD2Channel) : NULL,
+		mSettings.mD3Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD3Channel) : NULL,
+		mSettings.mD4Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD4Channel) : NULL,
+		mSettings.mD5Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD5Channel) : NULL,
+		mSettings.mD6Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD6Channel) : NULL,
+		mSettings.mD7Channel != UNDEFINED_CHANNEL ? GetAnalyzerChannelData(mSettings.mD7Channel) : NULL,
+	};
+}
+
+void xSPIAnalyzer::AdvanceSignalsToSample()
+{
+	mClock->AdvanceToAbsPosition(mCurrentSample);
+	if (mDataStrobe != NULL)
+		mDataStrobe->AdvanceToAbsPosition(mCurrentSample);
+	for (size_t i = 0; i < 8; i++)
+	{
+		if (mData[i] == NULL)
+			continue;
+		mData[i]->AdvanceToAbsPosition(mCurrentSample);
+	}
+}
+
+void xSPIAnalyzer::AdvanceToCsEdge()
+{
+	if (mEnable->GetBitState() != mSettings.mEnableActiveState)
+	{
+		// Move to the next active edge
+		mEnable->AdvanceToNextEdge();
+	}
+	else
+	{
+		// Skip the trailing edge
+		mEnable->AdvanceToNextEdge();
+
+		// Move to the next active edge
+		mEnable->AdvanceToNextEdge();
+	}
+	mCurrentSample = mEnable->GetSampleNumber();
+	AdvanceSignalsToSample();
+}
+
+void xSPIAnalyzer::AdvanceToNextPacket()
+{
+	mResults.CommitPacketAndStartNewPacket();
+	mResults.CommitResults();
+
+	AdvanceToCsEdge();
+
+	while (true)
+	{
+		if (VerifyClockPolarity())
 		{
-			//let's put a dot exactly where we sample this bit:
-			mResults->AddMarker( mSerial->GetSampleNumber(), AnalyzerResults::Dot, mSettings->mInputChannel );
+			FrameV2 frameV2StartTransaction;
+			mResults.AddFrameV2(frameV2StartTransaction, "enable", mCurrentSample, mCurrentSample + 1);
+			break;
+		}
+	}
+}
 
-			if( mSerial->GetBitState() == BIT_HIGH )
-				data |= mask;
+bool xSPIAnalyzer::VerifyClockPolarity()
+{
+	if (mClock->GetBitState() == mSettings.mClockInactiveState)
+		return true;
 
-			mSerial->Advance( samples_per_bit );
+	// Clock error
+	mResults.AddMarker(mCurrentSample, AnalyzerResults::ErrorSquare, mSettings.mClockChannel);
 
-			mask = mask >> 1;
+	Frame errorFrame;
+	errorFrame.mStartingSampleInclusive = mCurrentSample;
+
+	// Move to the next edge
+	mEnable->AdvanceToNextEdge();
+	mCurrentSample = mEnable->GetSampleNumber();
+
+	errorFrame.mEndingSampleInclusive = mCurrentSample;
+	errorFrame.mFlags = SPI_ERROR_FLAG | DISPLAY_AS_ERROR_FLAG;
+	mResults.AddFrame(errorFrame);
+
+	// Create V2 Frame
+	FrameV2 frameV2;
+	mResults.AddFrameV2(frameV2, "error", errorFrame.mStartingSampleInclusive, errorFrame.mEndingSampleInclusive + 1);
+
+	mResults.CommitResults();
+	ReportProgress(errorFrame.mEndingSampleInclusive);
+
+	// Move to the next activating edge.
+	mEnable->AdvanceToNextEdge();
+	mCurrentSample = mEnable->GetSampleNumber();
+	AdvanceSignalsToSample();
+
+	return false;
+}
+
+bool xSPIAnalyzer::IsNextClockEdgeValid()
+{
+	// Check to see if the enable line transitions before the next clock edge.
+	// If it does then the next edge isn't part of this frame or a framing error occurred.
+
+	if (!mClock->DoMoreTransitionsExistInCurrentData() && mEnable->GetBitState() == mSettings.mEnableActiveState)
+	{
+		// Out of clock transitions (so far), but enable is in the active state
+
+		if (mEnable->DoMoreTransitionsExistInCurrentData())
+		{
+			// Enable toggles after the current sample number.
+			U64 nextEnableEdge = mEnable->GetSampleOfNextEdge();
+			if (!mClock->WouldAdvancingToAbsPositionCauseTransition(nextEnableEdge))
+			{
+				// No transitions of the clock exist before the next enable edge. Report the error.
+				FrameV2 frameV2;
+				mResults.AddFrameV2(frameV2, "disable", nextEnableEdge, nextEnableEdge + 1);
+				return false;	// Missing clock edge
+			}
+		}
+	}
+
+	U64 nextEdge = mClock->GetSampleOfNextEdge();
+	if (mEnable->WouldAdvancingToAbsPositionCauseTransition(nextEdge))
+	{
+		U64 nextEnableEdge = mEnable->GetSampleOfNextEdge();
+		FrameV2 frameV2;
+		mResults.AddFrameV2(frameV2, "disable", nextEnableEdge, nextEnableEdge + 1);
+		return false;	// Missing clock edge
+	}
+	else
+		return true;
+}
+
+void xSPIAnalyzer::GetWord()
+{
+	// Assumes CS is active but SCK is in idle
+
+	mMarkers.clear();
+	ReportProgress(mClock->GetSampleNumber());
+	
+	U8 dataWord = 0;	// Used in all modes
+	U8 misoWord = 0;	// Used for 1S mode
+
+	U64 firstClockEdge = 0;	// First clock of the frame
+
+	bool needReset = false;
+
+	for (size_t i = 0; i < 8; i++)
+	{
+		if (i == 0)
+			CheckIfThreadShouldExit();
+
+		if (!IsNextClockEdgeValid())
+		{
+			AdvanceToNextPacket();
+			return;
 		}
 
+		mClock->AdvanceToNextEdge();
+		if (i == 0)
+			firstClockEdge = mClock->GetSampleNumber();
 
-		//we have a byte to save. 
-		Frame frame;
-		frame.mData1 = data;
-		frame.mFlags = 0;
-		frame.mStartingSampleInclusive = starting_sample;
-		frame.mEndingSampleInclusive = mSerial->GetSampleNumber();
+		switch (mSettings.mProtocolMode)
+		{
+			mCurrentSample = mClock->GetSampleNumber();
+			AdvanceSignalsToSample();
 
-		mResults->AddFrame( frame );
-		mResults->CommitResults();
-		ReportProgress( frame.mEndingSampleInclusive );
+			case xSPIAnalyzerEnums::Mode_1S_1S_1S:
+			{
+				// One bit per clock.
+				mMarkers.push_back(TraceMarker(mCurrentSample, AnalyzerResults::MarkerType::UpArrow));
+
+				dataWord <<= 1;
+				dataWord |= mData[0]->GetBitState();
+
+				misoWord <<= 1;
+				misoWord |= mData[1]->GetBitState();
+
+				if (!IsNextClockEdgeValid())
+				{
+					needReset = true;
+					break;
+				}
+
+				mClock->AdvanceToNextEdge();
+
+				break;
+			}
+			case xSPIAnalyzerEnums::Mode_8D_8D_8D:
+			{
+				// Two bits per clock (rising and falling edge)
+
+				//
+				// Rising edge of the clock.
+				//
+				mMarkers.push_back(TraceMarker(mCurrentSample, AnalyzerResults::MarkerType::UpArrow));
+				for (size_t j = 7; j >= 0; j--)
+				{
+					dataWord <<= 1;
+					dataWord |= mData[j]->GetBitState();
+					i++;	// Increment the bit counter
+				}
+
+				// Move to the falling edge
+				mClock->AdvanceToNextEdge();
+
+				// Build result frames for the rising edge data.
+				Frame risingFrame;
+				risingFrame.mStartingSampleInclusive = firstClockEdge;
+				risingFrame.mEndingSampleInclusive = mClock->GetSampleNumber();
+				risingFrame.mData1 = dataWord;
+				risingFrame.mData2 = 0;
+				risingFrame.mFlags = 0;
+				mResults.AddFrame(risingFrame);
+
+				FrameV2 risingFrame2;
+				risingFrame2.AddByte("data", dataWord);
+				mResults.AddFrameV2(risingFrame2, "result", firstClockEdge, mClock->GetSampleNumber() + 1);
+
+				//
+				// Falling edge of the clock
+				//
+				mCurrentSample = mClock->GetSampleNumber();
+				AdvanceSignalsToSample();
+
+				dataWord = 0;
+				mMarkers.push_back(TraceMarker(mCurrentSample, AnalyzerResults::MarkerType::DownArrow));
+				for (size_t j = 7; j >= 0; j--)
+				{
+					dataWord <<= 1;
+					dataWord |= (mData[j]->GetBitState() == BIT_HIGH) ? 1 : 0;
+					i++;	// Increment the bit counter
+				}
+
+				if (!IsNextClockEdgeValid())
+				{
+					needReset = true;
+					break;
+				}
+
+				// Move to the next edge
+				mClock->AdvanceToNextEdge();
+
+				// Build result frames for the rising edge data.
+				Frame fallingFrame;
+				fallingFrame.mStartingSampleInclusive = firstClockEdge;
+				fallingFrame.mEndingSampleInclusive = mClock->GetSampleNumber();
+				fallingFrame.mData1 = dataWord;
+				fallingFrame.mData2 = 0;
+				fallingFrame.mFlags = 0;
+				mResults.AddFrame(fallingFrame);
+
+				FrameV2 fallingFrame2;
+				fallingFrame2.AddByte("data", dataWord);
+				mResults.AddFrameV2(fallingFrame2, "result", mCurrentSample, mClock->GetSampleNumber() + 1);
+
+				break;
+			}
+		}
 	}
+
+	// Save the results
+	U32 count = mMarkers.size();
+	for (size_t i = 0; i < count; i++)
+		mResults.AddMarker(mMarkers[i].mSampleNumber, mMarkers[i].mMarkerType, mSettings.mClockChannel);
+
+	if (mSettings.mProtocolMode == xSPIAnalyzerEnums::Mode_1S_1S_1S)
+	{
+		// Build result frames for standard SPI
+		Frame frame;
+		frame.mStartingSampleInclusive = firstClockEdge;
+		frame.mEndingSampleInclusive = mClock->GetSampleNumber();
+		frame.mData1 = dataWord;
+		frame.mData2 = misoWord;
+		frame.mFlags = 0;
+		mResults.AddFrame(frame);
+
+		FrameV2 frame2;
+		frame2.AddByte("mosi", dataWord);
+		frame2.AddByte("miso", misoWord);
+		mResults.AddFrameV2(frame2, "result", mCurrentSample, mClock->GetSampleNumber() + 1);
+	}
+
+	mResults.CommitResults();
 }
 
 bool xSPIAnalyzer::NeedsRerun()
@@ -81,7 +339,7 @@ U32 xSPIAnalyzer::GenerateSimulationData( U64 minimum_sample_index, U32 device_s
 {
 	if( mSimulationInitilized == false )
 	{
-		mSimulationDataGenerator.Initialize( GetSimulationSampleRate(), mSettings.get() );
+		mSimulationDataGenerator.Initialize( GetSimulationSampleRate(), (xSPIAnalyzerSettings*) &mSettings );
 		mSimulationInitilized = true;
 	}
 
@@ -90,7 +348,7 @@ U32 xSPIAnalyzer::GenerateSimulationData( U64 minimum_sample_index, U32 device_s
 
 U32 xSPIAnalyzer::GetMinimumSampleRateHz()
 {
-	return mSettings->mBitRate * 4;
+	return 0; //mSettings->mBitRate * 4;
 }
 
 const char* xSPIAnalyzer::GetAnalyzerName() const

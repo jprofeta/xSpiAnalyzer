@@ -18,7 +18,7 @@ void xSPISimulationDataGenerator::Initialize( U32 simulation_sample_rate, xSPIAn
 	mSimulationSampleRateHz = simulation_sample_rate;
 	mSettings = settings;
 
-	mSerialSimulationData.SetChannel( mSettings->mInputChannel );
+	mSerialSimulationData.SetChannel( mSettings->mClockChannel );
 	mSerialSimulationData.SetSampleRate( simulation_sample_rate );
 	mSerialSimulationData.SetInitialBitState( BIT_HIGH );
 }
@@ -38,7 +38,7 @@ U32 xSPISimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requ
 
 void xSPISimulationDataGenerator::CreateSerialByte()
 {
-	U32 samples_per_bit = mSimulationSampleRateHz / mSettings->mBitRate;
+	//U32 samples_per_bit = mSimulationSampleRateHz / mSettings->mBitRate;
 
 	U8 byte = mSerialText[ mStringIndex ];
 	mStringIndex++;
@@ -47,10 +47,10 @@ void xSPISimulationDataGenerator::CreateSerialByte()
 
 	//we're currenty high
 	//let's move forward a little
-	mSerialSimulationData.Advance( samples_per_bit * 10 );
+	//mSerialSimulationData.Advance( samples_per_bit * 10 );
 
 	mSerialSimulationData.Transition();  //low-going edge for start bit
-	mSerialSimulationData.Advance( samples_per_bit );  //add start bit time
+	//mSerialSimulationData.Advance( samples_per_bit );  //add start bit time
 
 	U8 mask = 0x1 << 7;
 	for( U32 i=0; i<8; i++ )
@@ -60,12 +60,12 @@ void xSPISimulationDataGenerator::CreateSerialByte()
 		else
 			mSerialSimulationData.TransitionIfNeeded( BIT_LOW );
 
-		mSerialSimulationData.Advance( samples_per_bit );
+		//mSerialSimulationData.Advance( samples_per_bit );
 		mask = mask >> 1;
 	}
 
 	mSerialSimulationData.TransitionIfNeeded( BIT_HIGH ); //we need to end high
 
 	//lets pad the end a bit for the stop bit:
-	mSerialSimulationData.Advance( samples_per_bit );
+	//mSerialSimulationData.Advance( samples_per_bit );
 }

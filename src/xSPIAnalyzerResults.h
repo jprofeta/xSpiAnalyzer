@@ -3,6 +3,8 @@
 
 #include <AnalyzerResults.h>
 
+#define SPI_ERROR_FLAG (1 << 0)
+
 class xSPIAnalyzer;
 class xSPIAnalyzerSettings;
 
@@ -24,6 +26,18 @@ protected: //functions
 protected:  //vars
 	xSPIAnalyzerSettings* mSettings;
 	xSPIAnalyzer* mAnalyzer;
+};
+
+struct TraceMarker
+{
+	U64 mSampleNumber;
+	AnalyzerResults::MarkerType mMarkerType;
+
+	inline TraceMarker(U64 sampleNumber, AnalyzerResults::MarkerType markerType)
+	{
+		mSampleNumber = sampleNumber;
+		mMarkerType = markerType;
+	}
 };
 
 #endif //XSPI_ANALYZER_RESULTS

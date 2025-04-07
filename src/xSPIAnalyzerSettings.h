@@ -36,23 +36,23 @@ public:
     xSPIAnalyzerEnums::ProtocolMode mProtocolMode;
 
 protected:
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mEnableChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mClockChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD0ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD1ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD2ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD3ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD4ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD5ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD6ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mD7ChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel>    mDataStrobeChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mShiftOrderInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mBitsPerTransferInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mClockInactiveStateInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mDataValidEdgeInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mEnableActiveStateInterface;
-	std::auto_ptr<AnalyzerSettingInterfaceNumberList> mProtocolModeInterface;
+    AnalyzerSettingInterfaceChannel    mEnableChannelInterface;
+    AnalyzerSettingInterfaceChannel    mClockChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD0ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD1ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD2ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD3ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD4ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD5ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD6ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mD7ChannelInterface;
+    AnalyzerSettingInterfaceChannel    mDataStrobeChannelInterface;
+    AnalyzerSettingInterfaceNumberList mShiftOrderInterface;
+    AnalyzerSettingInterfaceNumberList mBitsPerTransferInterface;
+    AnalyzerSettingInterfaceNumberList mClockInactiveStateInterface;
+    AnalyzerSettingInterfaceNumberList mDataValidEdgeInterface;
+    AnalyzerSettingInterfaceNumberList mEnableActiveStateInterface;
+	AnalyzerSettingInterfaceNumberList mProtocolModeInterface;
 };
 
 #endif // XSPI_ANALYZER_SETTINGS
