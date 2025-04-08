@@ -28,8 +28,8 @@ public:
 	void Setup();
 	void AdvanceSignalsToSample();
 	void AdvanceToCsEdge();
-	void AdvanceToNextPacket();
-	bool VerifyClockPolarity();
+	void AdvanceToNextFrame();
+	bool VerifyFrameStartClockPolarity();
 	void GetWord();
 	bool IsNextClockEdgeValid();
 
@@ -46,7 +46,8 @@ protected: //vars
 	bool mSimulationInitilized;
 
 	// analysis vars:
-	U64 mCurrentSample;
+	U64 mFrameStart;		///< Sample number for the start of the current frame.
+	U64 mCurrentSample;		///< Sample number of the current position in the frame.
 	std::vector<TraceMarker> mMarkers;
 };
 

@@ -113,6 +113,8 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
                                         "8D-8D-8D" );
     mProtocolModeInterface.SetNumber( mProtocolMode );
 
+    AddInterface( &mEnableChannelInterface );
+    AddInterface( &mClockChannelInterface );
     AddInterface( &mD0ChannelInterface );
     AddInterface( &mD1ChannelInterface );
     AddInterface( &mD2ChannelInterface );
@@ -121,8 +123,6 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     AddInterface( &mD5ChannelInterface );
     AddInterface( &mD6ChannelInterface );
     AddInterface( &mD7ChannelInterface );
-    AddInterface( &mClockChannelInterface );
-    AddInterface( &mEnableChannelInterface );
     AddInterface( &mDataStrobeChannelInterface );
     AddInterface( &mShiftOrderInterface );
     AddInterface( &mBitsPerTransferInterface );
@@ -136,6 +136,8 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     AddExportExtension( 0, "csv", "csv" );
 
     ClearChannels();
+    AddChannel( mEnableChannel, "ENABLE", false );
+    AddChannel( mClockChannel, "CLOCK", false );
     AddChannel( mD0Channel, "D0", false );
     AddChannel( mD1Channel, "D1", false );
     AddChannel( mD2Channel, "D2", false );
@@ -144,8 +146,6 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     AddChannel( mD5Channel, "D5", false );
     AddChannel( mD6Channel, "D6", false );
     AddChannel( mD7Channel, "D7", false );
-    AddChannel( mClockChannel, "CLOCK", false );
-    AddChannel( mEnableChannel, "ENABLE", false );
     AddChannel( mDataStrobeChannel, "DS", false );
 }
 
@@ -237,6 +237,8 @@ bool xSPIAnalyzerSettings::SetSettingsFromInterfaces()
     mProtocolMode = (xSPIAnalyzerEnums::ProtocolMode)U32( mProtocolModeInterface.GetNumber() );
 
     ClearChannels();
+    AddChannel(mEnableChannel, "ENABLE", mEnableChannel != UNDEFINED_CHANNEL);
+    AddChannel(mClockChannel, "CLOCK", mClockChannel != UNDEFINED_CHANNEL);
     AddChannel(mD0Channel, "D0", mD0Channel != UNDEFINED_CHANNEL);
     AddChannel(mD1Channel, "D1", mD1Channel != UNDEFINED_CHANNEL);
     AddChannel(mD2Channel, "D2", mD2Channel != UNDEFINED_CHANNEL);
@@ -245,8 +247,6 @@ bool xSPIAnalyzerSettings::SetSettingsFromInterfaces()
     AddChannel(mD5Channel, "D5", mD5Channel != UNDEFINED_CHANNEL);
     AddChannel(mD6Channel, "D6", mD6Channel != UNDEFINED_CHANNEL);
     AddChannel(mD7Channel, "D7", mD7Channel != UNDEFINED_CHANNEL);
-    AddChannel(mClockChannel, "CLOCK", mClockChannel != UNDEFINED_CHANNEL);
-    AddChannel(mEnableChannel, "ENABLE", mEnableChannel != UNDEFINED_CHANNEL);
     AddChannel(mDataStrobeChannel, "DS", mDataStrobeChannel != UNDEFINED_CHANNEL);
 
     return true;

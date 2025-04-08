@@ -6,6 +6,8 @@ _deps
 *.vcxproj
 *.vcxproj.filters
 *.sln
+.vs
+out
 
 CMakeFiles
 cmake_install.cmake
