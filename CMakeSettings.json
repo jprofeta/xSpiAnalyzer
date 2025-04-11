@@ -2,14 +2,21 @@
   "configurations": [
     {
       "name": "x64-Debug",
-      "generator": "Ninja",
+      "generator": "Visual Studio 17 2022 Win64",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": ""
+      "ctestCommandArgs": "",
+      "intelliSenseMode": "windows-msvc-x64",
+      "variables": [
+        {
+          "name": "CMAKE_CXX_FLAGS",
+          "value": "/DWIN32 /D_WINDOWS /EHsc /std:c++20",
+          "type": "STRING"
+        }
+      ]
     }
   ]
 }

@@ -1,16 +1,26 @@
 #ifndef XSPI_ANALYZER_RESULTS
 #define XSPI_ANALYZER_RESULTS
 
+#include <map>
+#include <vector>
+
 #include <AnalyzerResults.h>
+#include "xSPIAnalyzerTypes.h"
 
 #define SPI_ERROR_FLAG (1 << 0)
+#define HAS_IFRAME_FLAG (1 << 1)
+
+using namespace xSPIAnalyzerEnums;
 
 class xSPIAnalyzer;
 class xSPIAnalyzerSettings;
+class IFrame;
 
 class xSPIAnalyzerResults : public AnalyzerResults
 {
-public:
+    friend xSPIAnalyzer;
+
+  public:
 	xSPIAnalyzerResults( xSPIAnalyzer* analyzer, xSPIAnalyzerSettings* settings );
 	virtual ~xSPIAnalyzerResults();
 
@@ -21,23 +31,17 @@ public:
 	virtual void GeneratePacketTabularText( U64 packet_id, DisplayBase display_base );
 	virtual void GenerateTransactionTabularText( U64 transaction_id, DisplayBase display_base );
 
+	const xSPIAnalyzerSettings* GetSettings()
+    {
+        return mSettings;
+	}
+
 protected: //functions
 
 protected:  //vars
 	xSPIAnalyzerSettings* mSettings;
 	xSPIAnalyzer* mAnalyzer;
-};
-
-struct TraceMarker
-{
-	U64 mSampleNumber;
-	AnalyzerResults::MarkerType mMarkerType;
-
-	inline TraceMarker(U64 sampleNumber, AnalyzerResults::MarkerType markerType)
-	{
-		mSampleNumber = sampleNumber;
-		mMarkerType = markerType;
-	}
+    std::vector<IFrame*> mDataFrames;
 };
 
 #endif //XSPI_ANALYZER_RESULTS

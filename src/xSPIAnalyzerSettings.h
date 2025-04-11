@@ -28,12 +28,10 @@ public:
     Channel mD6Channel;
     Channel mD7Channel;
     Channel mDataStrobeChannel;
-    AnalyzerEnums::ShiftOrder mShiftOrder;
-    U32 mBitsPerTransfer;
     BitState mClockInactiveState;
-    AnalyzerEnums::Edge mDataValidEdge;
     BitState mEnableActiveState;
-    xSPIAnalyzerEnums::ProtocolMode mProtocolMode;
+    xSPIAnalyzerEnums::BusWidth mBusWidth;
+    bool mDoubleRate;
 
 protected:
     AnalyzerSettingInterfaceChannel    mEnableChannelInterface;
@@ -47,12 +45,10 @@ protected:
     AnalyzerSettingInterfaceChannel    mD6ChannelInterface;
     AnalyzerSettingInterfaceChannel    mD7ChannelInterface;
     AnalyzerSettingInterfaceChannel    mDataStrobeChannelInterface;
-    AnalyzerSettingInterfaceNumberList mShiftOrderInterface;
-    AnalyzerSettingInterfaceNumberList mBitsPerTransferInterface;
     AnalyzerSettingInterfaceNumberList mClockInactiveStateInterface;
-    AnalyzerSettingInterfaceNumberList mDataValidEdgeInterface;
     AnalyzerSettingInterfaceNumberList mEnableActiveStateInterface;
-	AnalyzerSettingInterfaceNumberList mProtocolModeInterface;
+	AnalyzerSettingInterfaceNumberList mBusWidthInterface;
+    AnalyzerSettingInterfaceBool       mDoubleRateInterface;
 };
 
 #endif // XSPI_ANALYZER_SETTINGS

@@ -16,12 +16,10 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     mD6Channel( UNDEFINED_CHANNEL ),
     mD7Channel( UNDEFINED_CHANNEL ),
     mDataStrobeChannel( UNDEFINED_CHANNEL ),
-    mShiftOrder( AnalyzerEnums::MsbFirst ),
-    mBitsPerTransfer( 8 ),
     mClockInactiveState( BIT_LOW ),
-    mDataValidEdge( AnalyzerEnums::LeadingEdge ),
     mEnableActiveState( BIT_LOW ),
-    mProtocolMode( xSPIAnalyzerEnums::Mode_1S_1S_1S )
+    mBusWidth( xSPIAnalyzerEnums::OneLane ),
+    mDoubleRate( false )
 {
     mEnableChannelInterface.SetTitleAndTooltip( "Enable", "Enable (CS, Chip Select)" );
     mEnableChannelInterface.SetChannel( mEnableChannel );
@@ -67,51 +65,26 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     mDataStrobeChannelInterface.SetChannel( mDataStrobeChannel );
     mDataStrobeChannelInterface.SetSelectionOfNoneIsAllowed( true );
 
-    mShiftOrderInterface.SetTitleAndTooltip( "Significant Bit", "" );
-    mShiftOrderInterface.AddNumber( AnalyzerEnums::MsbFirst, "Most Significant Bit First (Standard)",
-                                     "Select if the most significant bit or least significant bit is transmitted first" );
-    mShiftOrderInterface.AddNumber( AnalyzerEnums::LsbFirst, "Least Significant Bit First", "" );
-    mShiftOrderInterface.SetNumber( mShiftOrder );
-
-    mBitsPerTransferInterface.SetTitleAndTooltip( "Bits per Transfer", "" );
-    for( U32 i = 1; i <= 64; i++ )
-    {
-        std::stringstream ss;
-
-        if( i == 8 )
-            ss << "8 Bits per Transfer (Standard)";
-        else
-            ss << i << " Bits per Transfer";
-
-        mBitsPerTransferInterface.AddNumber( i, ss.str().c_str(), "" );
-    }
-    mBitsPerTransferInterface.SetNumber( mBitsPerTransfer );
-
-    mClockInactiveStateInterface.SetTitleAndTooltip( "Clock State", "" );
+    mClockInactiveStateInterface.SetTitleAndTooltip( "Clock Polarity", "Active polarity of the clock signal." );
     mClockInactiveStateInterface.AddNumber( BIT_LOW, "Clock is Low when inactive (CPOL = 0)", "CPOL = 0 (Clock Polarity)" );
     mClockInactiveStateInterface.AddNumber( BIT_HIGH, "Clock is High when inactive (CPOL = 1)", "CPOL = 1 (Clock Polarity)" );
     mClockInactiveStateInterface.SetNumber( mClockInactiveState );
 
-    mDataValidEdgeInterface.SetTitleAndTooltip( "Clock Phase", "" );
-    mDataValidEdgeInterface.AddNumber( AnalyzerEnums::LeadingEdge, "Data is Valid on Clock Leading Edge (CPHA = 0)",
-                                        "CPHA = 0 (Clock Phase)" );
-    mDataValidEdgeInterface.AddNumber( AnalyzerEnums::TrailingEdge, "Data is Valid on Clock Trailing Edge (CPHA = 1)",
-                                        "CPHA = 1 (Clock Phase)" );
-    mDataValidEdgeInterface.SetNumber( mDataValidEdge );
-
-    mEnableActiveStateInterface.SetTitleAndTooltip( "Enable Line", "" );
+    mEnableActiveStateInterface.SetTitleAndTooltip( "Enable Polarity", "Active polarity of the enable signal." );
     mEnableActiveStateInterface.AddNumber( BIT_LOW, "Enable line is Active Low (Standard)", "" );
     mEnableActiveStateInterface.AddNumber( BIT_HIGH, "Enable line is Active High", "" );
     mEnableActiveStateInterface.SetNumber( mEnableActiveState );
 
-    mProtocolModeInterface.SetTitleAndTooltip( "Protocol Mode", "" );
-    mProtocolModeInterface.AddNumber( xSPIAnalyzerEnums::Mode_1S_1S_1S, "Cmd: 1 lane; Addr: 1 lane; Data: 1 lane",
-                                        "1S-1S-1S" );
-    // mProtocolModeInterface.AddNumber( xSPIAnalyzerEnums::Mode_4S_4D_4D, "Cmd: 4 lanes; Addr: 4 lanes, double rate; Data: 4 lanes, double rate",
-    //                                     "4S-4D-4D" );
-    mProtocolModeInterface.AddNumber( xSPIAnalyzerEnums::Mode_8D_8D_8D, "Cmd: 8 lanes, double rate; Addr: 8 lanes, double rate; Data: 8 lanes, double rate",
-                                        "8D-8D-8D" );
-    mProtocolModeInterface.SetNumber( mProtocolMode );
+    mBusWidthInterface.SetTitleAndTooltip( "Bus Width", "Number of data lines used for transfers." );
+    mBusWidthInterface.AddNumber( xSPIAnalyzerEnums::OneLane, "1 Data Line", "Standard SPI (MOSI and MISO)" );
+    mBusWidthInterface.AddNumber( xSPIAnalyzerEnums::TwoLanes, "2 Data Lines", "Dual-SPI" );
+    mBusWidthInterface.AddNumber( xSPIAnalyzerEnums::FourLanes, "4 Data Lines", "Quad-SPI" );
+    mBusWidthInterface.AddNumber( xSPIAnalyzerEnums::EightLanes, "8 Data Lines", "Octa-SPI" );
+    mBusWidthInterface.SetNumber( mBusWidth );
+
+    mDoubleRateInterface.SetTitleAndTooltip( "Double Data Rate Clock", "Data is latched on both edges of the clock signal." );
+    mDoubleRateInterface.SetCheckBoxText( "Use DDR" );
+    mDoubleRateInterface.SetValue( mDoubleRate );
 
     AddInterface( &mEnableChannelInterface );
     AddInterface( &mClockChannelInterface );
@@ -124,12 +97,10 @@ xSPIAnalyzerSettings::xSPIAnalyzerSettings()
     AddInterface( &mD6ChannelInterface );
     AddInterface( &mD7ChannelInterface );
     AddInterface( &mDataStrobeChannelInterface );
-    AddInterface( &mShiftOrderInterface );
-    AddInterface( &mBitsPerTransferInterface );
     AddInterface( &mClockInactiveStateInterface );
-    AddInterface( &mDataValidEdgeInterface );
     AddInterface( &mEnableActiveStateInterface );
-    AddInterface( &mProtocolModeInterface );
+    AddInterface( &mBusWidthInterface );
+    AddInterface( &mDoubleRateInterface );
 
     AddExportOption( 0, "Export as text/csv file" );
     AddExportExtension( 0, "text", "txt" );
@@ -167,7 +138,8 @@ bool xSPIAnalyzerSettings::SetSettingsFromInterfaces()
     Channel d7 = mD7ChannelInterface.GetChannel();
     Channel dataStrobe = mDataStrobeChannelInterface.GetChannel();
 
-    xSPIAnalyzerEnums::ProtocolMode protocolMode = (xSPIAnalyzerEnums::ProtocolMode)U32( mProtocolModeInterface.GetNumber() );
+    xSPIAnalyzerEnums::BusWidth busWidth = ( xSPIAnalyzerEnums::BusWidth )U32( mBusWidthInterface.GetNumber() );
+    bool doubleRate = mDoubleRateInterface.GetValue();
 
     std::vector<Channel> channels;
     channels.push_back( d0 );
@@ -188,33 +160,31 @@ bool xSPIAnalyzerSettings::SetSettingsFromInterfaces()
         return false;
     }
 
-    if ( (protocolMode == xSPIAnalyzerEnums::Mode_1S_1S_1S)
+    if( ( ( busWidth == xSPIAnalyzerEnums::OneLane ) || ( busWidth == xSPIAnalyzerEnums::TwoLanes ) )
         && ( d0 == UNDEFINED_CHANNEL ) && ( d1 == UNDEFINED_CHANNEL ) )
     {
-        SetErrorText( "Please select at least one input for either D0 or D1." );
+        SetErrorText( "Please select D0 and D1 when using 1 or 2 data lanes." );
         return false;
     }
 
-    // if ( (dataStrobe == UNDEFINED_CHANNEL)
-    //     && ( (protocolMode == xSPIAnalyzerEnums::Mode_4S_4D_4D) 
-    //         || (protocolMode == xSPIAnalyzerEnums::Mode_8D_8D_8D) ) )
-    // {
-    //     SetErrorText( "Please select a data strobe channel when using a double-rate protocol mode." );
-    //     return false;
-    // }
-
-    // if ( (protocolMode == xSPIAnalyzerEnums::Mode_4S_4D_4D)
-    //     && ( d0 == UNDEFINED_CHANNEL || d1 == UNDEFINED_CHANNEL || d2 == UNDEFINED_CHANNEL || d3 == UNDEFINED_CHANNEL ) )
-    // {
-    //     SetErrorText( "Please select D0-D3 when using a 4-lane protocol mode.");
-    //     return false;
-    // }
-
-    if ( (protocolMode == xSPIAnalyzerEnums::Mode_8D_8D_8D)
-        && ( d0 == UNDEFINED_CHANNEL || d1 == UNDEFINED_CHANNEL || d2 == UNDEFINED_CHANNEL || d3 == UNDEFINED_CHANNEL
-            || d4 == UNDEFINED_CHANNEL || d5 == UNDEFINED_CHANNEL || d6 == UNDEFINED_CHANNEL || d7 == UNDEFINED_CHANNEL ) )
+    if( ( busWidth == xSPIAnalyzerEnums::FourLanes ) && ( d0 == UNDEFINED_CHANNEL ) && ( d1 == UNDEFINED_CHANNEL )
+        && ( d2 == UNDEFINED_CHANNEL ) && ( d3 == UNDEFINED_CHANNEL ) )
     {
-        SetErrorText( "Please select D0-D7 when using an 8-lane protocol mode.");
+        SetErrorText( "Please select D0-D3 when using 4 data lanes." );
+        return false;
+    }
+
+    if( ( busWidth == xSPIAnalyzerEnums::EightLanes ) && ( d0 == UNDEFINED_CHANNEL ) && ( d1 == UNDEFINED_CHANNEL )
+        && ( d2 == UNDEFINED_CHANNEL ) && ( d3 == UNDEFINED_CHANNEL ) && ( d4 == UNDEFINED_CHANNEL ) && ( d5 == UNDEFINED_CHANNEL )
+        && ( d6 == UNDEFINED_CHANNEL ) && ( d7 == UNDEFINED_CHANNEL ) )
+    {
+        SetErrorText( "Please select D0-D7 when using 8 data lanes." );
+        return false;
+    }
+
+    if ((doubleRate) && (dataStrobe == UNDEFINED_CHANNEL))
+    {
+        SetErrorText( "Please select DS when using double data rate mode." );
         return false;
     }
 
@@ -229,12 +199,10 @@ bool xSPIAnalyzerSettings::SetSettingsFromInterfaces()
     mD6Channel = mD6ChannelInterface.GetChannel();
     mD7Channel = mD7ChannelInterface.GetChannel();
     mDataStrobeChannel = mDataStrobeChannelInterface.GetChannel();
-    mShiftOrder = (AnalyzerEnums::ShiftOrder)U32(mShiftOrderInterface.GetNumber());
-    mBitsPerTransfer = U32(mBitsPerTransferInterface.GetNumber());
     mClockInactiveState = (BitState)U32(mClockInactiveStateInterface.GetNumber());
-    mDataValidEdge = (AnalyzerEnums::Edge)U32(mDataValidEdgeInterface.GetNumber());
     mEnableActiveState = (BitState)U32(mEnableActiveStateInterface.GetNumber());
-    mProtocolMode = (xSPIAnalyzerEnums::ProtocolMode)U32( mProtocolModeInterface.GetNumber() );
+    mBusWidth = (xSPIAnalyzerEnums::BusWidth)U32( mBusWidthInterface.GetNumber() );
+    mDoubleRate = mDoubleRateInterface.GetValue();
 
     ClearChannels();
     AddChannel(mEnableChannel, "ENABLE", mEnableChannel != UNDEFINED_CHANNEL);
@@ -265,12 +233,10 @@ void xSPIAnalyzerSettings::UpdateInterfacesFromSettings()
     mD6ChannelInterface.SetChannel( mD6Channel );
     mD7ChannelInterface.SetChannel( mD7Channel );
     mDataStrobeChannelInterface.SetChannel( mDataStrobeChannel );
-    mShiftOrderInterface.SetNumber( mShiftOrder );
-    mBitsPerTransferInterface.SetNumber( mBitsPerTransfer );
     mClockInactiveStateInterface.SetNumber( mClockInactiveState );
-    mDataValidEdgeInterface.SetNumber( mDataValidEdge );
     mEnableActiveStateInterface.SetNumber( mEnableActiveState );
-    mProtocolModeInterface.SetNumber( mProtocolMode );
+    mBusWidthInterface.SetNumber( mBusWidth );
+    mDoubleRateInterface.SetValue( mDoubleRate );
 }
 
 void xSPIAnalyzerSettings::LoadSettings( const char* settings )
@@ -294,12 +260,10 @@ void xSPIAnalyzerSettings::LoadSettings( const char* settings )
     text_archive >> mD6Channel;
     text_archive >> mD7Channel;
     text_archive >> mDataStrobeChannel;
-    text_archive >> *( U32* )&mShiftOrder;
-    text_archive >> mBitsPerTransfer;
     text_archive >> *( U32* )&mClockInactiveState;
-    text_archive >> *( U32* )&mDataValidEdge;
     text_archive >> *( U32* )&mEnableActiveState;
-    text_archive >> *( U32* )&mProtocolMode;
+    text_archive >> *( U32* )&mBusWidth;
+    text_archive >> mDoubleRate;
 
     ClearChannels();
     AddChannel(mD0Channel, "D0", mD0Channel != UNDEFINED_CHANNEL);
@@ -333,12 +297,10 @@ const char* xSPIAnalyzerSettings::SaveSettings()
     text_archive << mD6Channel;
     text_archive << mD7Channel;
     text_archive << mDataStrobeChannel;
-    text_archive << mShiftOrder;
-    text_archive << mBitsPerTransfer;
     text_archive << mClockInactiveState;
-    text_archive << mDataValidEdge;
     text_archive << mEnableActiveState;
-    text_archive << mProtocolMode;
+    text_archive << mBusWidth;
+    text_archive << mDoubleRate;
 
     return SetReturnString( text_archive.GetString() );
 }

@@ -2,8 +2,15 @@
 #include <AnalyzerHelpers.h>
 #include "xSPIAnalyzer.h"
 #include "xSPIAnalyzerSettings.h"
+#include "xSPIAnalyzerFrames.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <string>
+
+#include <string.h>
+
+using namespace xSPIAnalyzerEnums;
 
 xSPIAnalyzerResults::xSPIAnalyzerResults( xSPIAnalyzer* analyzer, xSPIAnalyzerSettings* settings )
 :	AnalyzerResults(),
@@ -14,16 +21,44 @@ xSPIAnalyzerResults::xSPIAnalyzerResults( xSPIAnalyzer* analyzer, xSPIAnalyzerSe
 
 xSPIAnalyzerResults::~xSPIAnalyzerResults()
 {
+    for( const auto& frame : mDataFrames )
+        delete frame;
+    mDataFrames.clear();
 }
 
 void xSPIAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel, DisplayBase display_base )
 {
 	ClearResultStrings();
 	Frame frame = GetFrame( frame_index );
+    std::ostringstream bubbleText;
 
-	char number_str[128];
-	AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-	AddResultString( number_str );
+    if (!frame.HasFlag(FrameFlag::DataIsIFramePtr))
+    {
+        return;
+    }
+
+    IFrame* dataFrame = ( IFrame* )frame.mData1;
+
+    if (mSettings->mBusWidth == BusWidth::OneLane)
+    {
+        if( channel == mSettings->mD0Channel )
+        {
+            dataFrame->GenerateBubbleText( bubbleText, display_base, 0 );
+        }
+        else if (channel == mSettings->mD1Channel)
+        {
+            dataFrame->GenerateBubbleText( bubbleText, display_base, 1 );
+        }
+    }
+    else
+    {
+        if (channel == mSettings->mEnableChannel)
+        {
+            dataFrame->GenerateBubbleText( bubbleText, display_base );
+        }
+    }
+
+    AddResultString( bubbleText.str().c_str() );
 }
 
 void xSPIAnalyzerResults::GenerateExportFile( const char* file, DisplayBase display_base, U32 export_type_user_id )
